@@ -19,10 +19,12 @@ export default function WorkspaceSidebar() {
   const {
     workspaces,
     activeWorkspaceId,
+    activeView,
     addWorkspace,
     removeWorkspace,
     renameWorkspace,
     setActiveWorkspace,
+    setActiveView,
     logout,
   } = useAppStore();
   const [newName, setNewName] = useState("");
@@ -41,6 +43,7 @@ export default function WorkspaceSidebar() {
 
   const handleSelectWorkspace = (id: string) => {
     setActiveWorkspace(id);
+    setActiveView("workspace");
     setMobileOpen(false);
   };
 
@@ -179,11 +182,31 @@ export default function WorkspaceSidebar() {
       </div>
 
       <div className="flex flex-col gap-0.5 border-t p-2">
-        <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-background hover:text-foreground">
+        <button
+          onClick={() => {
+            setActiveView("billing");
+            setMobileOpen(false);
+          }}
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+            activeView === "billing"
+              ? "bg-foreground text-accent-foreground"
+              : "text-muted hover:bg-background hover:text-foreground"
+          }`}
+        >
           <Receipt className="h-4 w-4" />
-          Bill
+          Packages & Bill
         </button>
-        <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-background hover:text-foreground">
+        <button
+          onClick={() => {
+            setActiveView("settings");
+            setMobileOpen(false);
+          }}
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+            activeView === "settings"
+              ? "bg-foreground text-accent-foreground"
+              : "text-muted hover:bg-background hover:text-foreground"
+          }`}
+        >
           <Settings className="h-4 w-4" />
           Setting
         </button>

@@ -6,8 +6,13 @@ import { OPENCLAW_PACKAGES } from "@/lib/types";
 
 const DEFAULT_WS_ID = "ws-default";
 
+export type ActiveView = "workspace" | "billing" | "settings";
+
 interface AppState {
   isLoggedIn: boolean;
+  activeView: ActiveView;
+  currentPlan: string;
+  tokenBalance: number;
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   selectedAgentId: string | null;
@@ -15,6 +20,9 @@ interface AppState {
 
   login: () => void;
   logout: () => void;
+  setActiveView: (view: ActiveView) => void;
+  setCurrentPlan: (plan: string) => void;
+  addTokens: (amount: number) => void;
 
   addWorkspace: (name: string) => void;
   removeWorkspace: (id: string) => void;
@@ -37,6 +45,9 @@ let agentCounter = 0;
 
 export const useAppStore = create<AppState>((set) => ({
   isLoggedIn: false,
+  activeView: "workspace" as ActiveView,
+  currentPlan: "free",
+  tokenBalance: 1000,
   workspaces: [{ id: DEFAULT_WS_ID, name: "Workspace", agents: [] }],
   activeWorkspaceId: DEFAULT_WS_ID,
   selectedAgentId: null,
@@ -46,9 +57,16 @@ export const useAppStore = create<AppState>((set) => ({
   logout: () =>
     set({
       isLoggedIn: false,
+      activeView: "workspace" as ActiveView,
+      currentPlan: "free",
+      tokenBalance: 1000,
       workspaces: [{ id: DEFAULT_WS_ID, name: "Workspace", agents: [] }],
       activeWorkspaceId: DEFAULT_WS_ID,
     }),
+  setActiveView: (view: ActiveView) => set({ activeView: view }),
+  setCurrentPlan: (plan: string) => set({ currentPlan: plan }),
+  addTokens: (amount: number) =>
+    set((state) => ({ tokenBalance: state.tokenBalance + amount })),
 
   addWorkspace: (name: string) => {
     const id = `ws-${Date.now()}`;
