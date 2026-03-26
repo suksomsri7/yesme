@@ -21,21 +21,24 @@ const PLANS = [
   {
     id: "free",
     name: "Free",
-    price: 0,
+    monthly: 0,
+    yearly: 0,
     tokens: 1000,
     features: ["1 Workspace", "2 AI Agents", "1,000 tokens/mo", "Community support"],
   },
   {
     id: "basic",
     name: "Basic",
-    price: 19,
+    monthly: 19,
+    yearly: 190,
     tokens: 50000,
     features: ["5 Workspaces", "10 AI Agents", "50,000 tokens/mo", "Email support", "All channels"],
   },
   {
     id: "pro",
     name: "Pro",
-    price: 49,
+    monthly: 49,
+    yearly: 490,
     tokens: 200000,
     popular: true,
     features: ["Unlimited Workspaces", "50 AI Agents", "200,000 tokens/mo", "Priority support", "All channels", "Advanced analytics"],
@@ -43,7 +46,8 @@ const PLANS = [
   {
     id: "enterprise",
     name: "Enterprise",
-    price: 199,
+    monthly: 199,
+    yearly: 1990,
     tokens: 1000000,
     features: ["Unlimited everything", "Unlimited AI Agents", "1,000,000 tokens/mo", "Dedicated support", "Custom integrations", "SLA guarantee", "SSO & SAML"],
   },
@@ -98,6 +102,7 @@ export default function BillingPage() {
   const { currentPlan, tokenBalance, setCurrentPlan, addTokens, setActiveView } =
     useAppStore();
   const [showTopUp, setShowTopUp] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [filterType, setFilterType] = useState<"all" | "usage" | "topup" | "plan">("all");
@@ -164,12 +169,44 @@ export default function BillingPage() {
         <div className="mx-auto max-w-3xl p-4 md:p-6">
           {/* Plans */}
           <div className="mb-8">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Choose your plan
-            </h3>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Choose your plan
+              </h3>
+              {/* Monthly / Yearly toggle */}
+              <div className="flex items-center gap-2 rounded-full border p-1">
+                <button
+                  onClick={() => setBillingCycle("monthly")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                    billingCycle === "monthly"
+                      ? "bg-foreground text-accent-foreground"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setBillingCycle("yearly")}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                    billingCycle === "yearly"
+                      ? "bg-foreground text-accent-foreground"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  Yearly
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
+                    Save 17%
+                  </span>
+                </button>
+              </div>
+            </div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {PLANS.map((plan) => {
                 const isActive = currentPlan === plan.id;
+                const price = billingCycle === "monthly" ? plan.monthly : plan.yearly;
+                const perMonth = billingCycle === "yearly" && plan.yearly > 0
+                  ? Math.round((plan.yearly / 12) * 100) / 100
+                  : plan.monthly;
                 return (
                   <div
                     key={plan.id}
@@ -184,9 +221,16 @@ export default function BillingPage() {
                     )}
                     <p className="text-sm font-semibold">{plan.name}</p>
                     <div className="mt-2">
-                      <span className="text-2xl font-bold">${plan.price}</span>
-                      <span className="text-xs text-muted">/mo</span>
+                      <span className="text-2xl font-bold">${price}</span>
+                      <span className="text-xs text-muted">
+                        /{billingCycle === "monthly" ? "mo" : "yr"}
+                      </span>
                     </div>
+                    {billingCycle === "yearly" && plan.yearly > 0 && (
+                      <p className="mt-0.5 text-[10px] text-muted">
+                        ${perMonth}/mo · save ${plan.monthly * 12 - plan.yearly}/yr
+                      </p>
+                    )}
                     <p className="mt-1 text-[10px] text-muted">{plan.tokens.toLocaleString()} tokens/mo</p>
                     <ul className="mt-3 flex flex-col gap-1.5">
                       {plan.features.map((f, i) => (
