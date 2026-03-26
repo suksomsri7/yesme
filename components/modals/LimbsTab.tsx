@@ -12,12 +12,17 @@ interface LimbsTabProps {
 export default function LimbsTab({ agent, onUpdate }: LimbsTabProps) {
   const [query, setQuery] = useState("");
 
-  const selectPackage = (pkgId: string) => {
+  const togglePackage = (pkgId: string) => {
+    const current = agent.limbs.find((p) => p.id === pkgId);
     const updated = agent.limbs.map((p) => ({
       ...p,
-      enabled: p.id === pkgId,
+      enabled: p.id === pkgId ? !current?.enabled : false,
     }));
     onUpdate({ limbs: updated });
+  };
+
+  const clearSelection = () => {
+    onUpdate({ limbs: agent.limbs.map((p) => ({ ...p, enabled: false })) });
   };
 
   const filtered = agent.limbs.filter(
@@ -30,13 +35,23 @@ export default function LimbsTab({ agent, onUpdate }: LimbsTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-          OpenClaw Package
-        </h3>
-        <p className="mt-1 text-xs text-muted/70">
-          Choose one tool package for this agent
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            OpenClaw Package
+          </h3>
+          <p className="mt-1 text-xs text-muted/70">
+            Choose one tool package for this agent
+          </p>
+        </div>
+        {selected && (
+          <button
+            onClick={clearSelection}
+            className="text-[10px] text-muted hover:text-red-500 transition-colors"
+          >
+            Remove
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -64,7 +79,7 @@ export default function LimbsTab({ agent, onUpdate }: LimbsTabProps) {
             }`}
           >
             <button
-              onClick={() => selectPackage(pkg.id)}
+              onClick={() => togglePackage(pkg.id)}
               className="flex flex-1 flex-col gap-0.5 text-left"
             >
               <span className="text-sm font-medium">{pkg.name}</span>
@@ -84,7 +99,7 @@ export default function LimbsTab({ agent, onUpdate }: LimbsTabProps) {
               >
                 <ExternalLink className="h-3 w-3" />
               </a>
-              <button onClick={() => selectPackage(pkg.id)}>
+              <button onClick={() => togglePackage(pkg.id)}>
                 {pkg.enabled ? (
                   <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground">
                     <Check className="h-3 w-3 text-accent-foreground" />

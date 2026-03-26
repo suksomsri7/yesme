@@ -19,10 +19,11 @@ export interface AIAgent {
   id: string;
   name: string;
   avatar: string;
+  isOnline: boolean;
   brain: {
     model: string;
     provider: string;
-  };
+  } | null;
   limbs: OpenClawPackage[];
   chat: ChannelConfig[];
 }

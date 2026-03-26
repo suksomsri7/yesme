@@ -21,6 +21,7 @@ interface AppState {
   addAgent: (workspaceId: string, name: string) => void;
   removeAgent: (workspaceId: string, agentId: string) => void;
   updateAgent: (workspaceId: string, agentId: string, updates: Partial<AIAgent>) => void;
+  toggleAgentOnline: (workspaceId: string, agentId: string) => void;
   selectAgent: (agentId: string | null) => void;
   setShowConfigModal: (show: boolean) => void;
 }
@@ -60,7 +61,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: `agent-${Date.now()}`,
       name,
       avatar: `/avatars/robot-${((agentCounter - 1) % 6) + 1}.svg`,
-      brain: { model: "gpt-4o", provider: "OpenAI" },
+      isOnline: false,
+      brain: null,
       limbs: OPENCLAW_PACKAGES.map((p) => ({ ...p })),
       chat: [],
     };
@@ -89,6 +91,21 @@ export const useAppStore = create<AppState>((set, get) => ({
               ...w,
               agents: w.agents.map((a) =>
                 a.id === agentId ? { ...a, ...updates } : a
+              ),
+            }
+          : w
+      ),
+    }));
+  },
+
+  toggleAgentOnline: (workspaceId: string, agentId: string) => {
+    set((state) => ({
+      workspaces: state.workspaces.map((w) =>
+        w.id === workspaceId
+          ? {
+              ...w,
+              agents: w.agents.map((a) =>
+                a.id === agentId ? { ...a, isOnline: !a.isOnline } : a
               ),
             }
           : w

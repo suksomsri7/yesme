@@ -28,15 +28,33 @@ export default function BrainTab({ agent, onUpdate }: BrainTabProps) {
     {} as Record<string, typeof filtered>
   );
 
+  const handleSelect = (modelId: string, provider: string) => {
+    if (agent.brain?.model === modelId) {
+      onUpdate({ brain: null });
+    } else {
+      onUpdate({ brain: { model: modelId, provider } });
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-          AI Model
-        </h3>
-        <p className="mt-1 text-xs text-muted/70">
-          Choose the brain that powers this agent
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+            AI Model
+          </h3>
+          <p className="mt-1 text-xs text-muted/70">
+            Choose the brain that powers this agent
+          </p>
+        </div>
+        {agent.brain && (
+          <button
+            onClick={() => onUpdate({ brain: null })}
+            className="text-[10px] text-muted hover:text-red-500 transition-colors"
+          >
+            Remove
+          </button>
+        )}
       </div>
 
       <div className="relative">
@@ -60,15 +78,11 @@ export default function BrainTab({ agent, onUpdate }: BrainTabProps) {
           </span>
           <div className="flex flex-col gap-1.5">
             {models.map((model) => {
-              const selected = agent.brain.model === model.id;
+              const selected = agent.brain?.model === model.id;
               return (
                 <button
                   key={model.id}
-                  onClick={() =>
-                    onUpdate({
-                      brain: { model: model.id, provider: model.provider },
-                    })
-                  }
+                  onClick={() => handleSelect(model.id, model.provider)}
                   className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all ${
                     selected
                       ? "border-foreground bg-foreground/5"

@@ -3,11 +3,52 @@
 import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { Plus, Bot, Brain, Wrench, MessageSquare } from "lucide-react";
-import Image from "next/image";
+
+function AgentFace({ isComplete, isOnline }: { isComplete: boolean; isOnline: boolean }) {
+  if (!isComplete) {
+    // Sad face — gray
+    return (
+      <svg viewBox="0 0 64 64" className="h-full w-full">
+        <rect width="64" height="64" rx="16" fill="#d4d4d4" />
+        <circle cx="22" cy="26" r="3.5" fill="#a3a3a3" />
+        <circle cx="42" cy="26" r="3.5" fill="#a3a3a3" />
+        <path d="M20 42 Q32 36 44 42" stroke="#a3a3a3" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (!isOnline) {
+    // Smile face — black
+    return (
+      <svg viewBox="0 0 64 64" className="h-full w-full">
+        <rect width="64" height="64" rx="16" fill="#171717" />
+        <circle cx="22" cy="26" r="3.5" fill="#fff" />
+        <circle cx="42" cy="26" r="3.5" fill="#fff" />
+        <path d="M20 38 Q32 46 44 38" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  // Smile face — blue
+  return (
+    <svg viewBox="0 0 64 64" className="h-full w-full">
+      <rect width="64" height="64" rx="16" fill="#2563eb" />
+      <circle cx="22" cy="26" r="3.5" fill="#fff" />
+      <circle cx="42" cy="26" r="3.5" fill="#fff" />
+      <path d="M20 38 Q32 46 44 38" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function AgentCanvas() {
-  const { workspaces, activeWorkspaceId, addAgent, selectAgent, setShowConfigModal } =
-    useAppStore();
+  const {
+    workspaces,
+    activeWorkspaceId,
+    addAgent,
+    selectAgent,
+    setShowConfigModal,
+    toggleAgentOnline,
+  } = useAppStore();
   const [showNameInput, setShowNameInput] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
 
@@ -59,7 +100,6 @@ export default function AgentCanvas() {
         </button>
       </div>
 
-      {/* Name input dialog */}
       {showNameInput && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
@@ -113,41 +153,57 @@ export default function AgentCanvas() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
             {workspace.agents.map((agent) => {
-              const activeTool = agent.limbs.find((l) => l.enabled);
-              const activeChannel = agent.chat[0];
+              const hasBrain = !!agent.brain;
+              const hasLimbs = agent.limbs.some((l) => l.enabled);
+              const hasChat = agent.chat.length > 0;
+              const isComplete = hasBrain && hasLimbs && hasChat;
+
               return (
-                <button
+                <div
                   key={agent.id}
-                  onClick={() => handleClickAgent(agent.id)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm active:scale-[0.98] sm:gap-3 sm:p-5"
+                  className="flex flex-col rounded-2xl border bg-card transition-all hover:border-foreground/20 hover:shadow-sm"
                 >
-                  <div className="relative h-12 w-12 overflow-hidden rounded-xl sm:h-16 sm:w-16">
-                    <Image
-                      src={agent.avatar}
-                      alt={agent.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="text-center">
+                  {/* Card body — clickable */}
+                  <button
+                    onClick={() => handleClickAgent(agent.id)}
+                    className="flex flex-col items-center gap-2 p-4 active:scale-[0.98] sm:gap-3 sm:p-5"
+                  >
+                    <div className="h-12 w-12 sm:h-16 sm:w-16">
+                      <AgentFace isComplete={isComplete} isOnline={agent.isOnline} />
+                    </div>
                     <p className="text-xs font-medium sm:text-sm">{agent.name}</p>
+                    {/* Icon row */}
+                    <div className="flex items-center gap-2">
+                      <Brain className={`h-3.5 w-3.5 ${hasBrain ? "text-foreground" : "text-border"}`} />
+                      <div className="h-3 w-px bg-border" />
+                      <Wrench className={`h-3.5 w-3.5 ${hasLimbs ? "text-foreground" : "text-border"}`} />
+                      <div className="h-3 w-px bg-border" />
+                      <MessageSquare className={`h-3.5 w-3.5 ${hasChat ? "text-foreground" : "text-border"}`} />
+                    </div>
+                  </button>
+
+                  {/* Online/Offline toggle */}
+                  <div className="flex items-center justify-center gap-2 border-t px-4 py-2">
+                    <span className={`text-[10px] font-medium ${agent.isOnline ? "text-blue-600" : "text-muted"}`}>
+                      {agent.isOnline ? "Online" : "Offline"}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleAgentOnline(workspace.id, agent.id);
+                      }}
+                      className={`flex h-5 w-9 items-center rounded-full transition-colors ${
+                        agent.isOnline ? "bg-blue-600" : "bg-border"
+                      }`}
+                    >
+                      <div
+                        className={`h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                          agent.isOnline ? "translate-x-[18px]" : "translate-x-[3px]"
+                        }`}
+                      />
+                    </button>
                   </div>
-                  {/* Icon row: Brain / Limbs / Chat */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1" title={`Brain: ${agent.brain.model}`}>
-                      <Brain className={`h-3.5 w-3.5 ${agent.brain.model ? "text-foreground" : "text-border"}`} />
-                      <span className="hidden text-[9px] text-muted sm:inline">{agent.brain.model.split("-").slice(0, 2).join("-")}</span>
-                    </div>
-                    <div className="h-3 w-px bg-border" />
-                    <div className="flex items-center gap-1" title={activeTool ? `Limbs: ${activeTool.name}` : "No tool"}>
-                      <Wrench className={`h-3.5 w-3.5 ${activeTool ? "text-foreground" : "text-border"}`} />
-                    </div>
-                    <div className="h-3 w-px bg-border" />
-                    <div className="flex items-center gap-1" title={activeChannel ? `Chat: ${activeChannel.name}` : "No channel"}>
-                      <MessageSquare className={`h-3.5 w-3.5 ${activeChannel ? "text-foreground" : "text-border"}`} />
-                    </div>
-                  </div>
-                </button>
+                </div>
               );
             })}
 
