@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Bot,
+  Pencil,
 } from "lucide-react";
 
 export default function WorkspaceSidebar() {
@@ -20,12 +21,15 @@ export default function WorkspaceSidebar() {
     activeWorkspaceId,
     addWorkspace,
     removeWorkspace,
+    renameWorkspace,
     setActiveWorkspace,
     logout,
   } = useAppStore();
   const [newName, setNewName] = useState("");
   const [showInput, setShowInput] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   const handleAdd = () => {
     if (newName.trim()) {
@@ -40,9 +44,21 @@ export default function WorkspaceSidebar() {
     setMobileOpen(false);
   };
 
+  const startRename = (id: string, currentName: string) => {
+    setEditingId(id);
+    setEditName(currentName);
+  };
+
+  const confirmRename = () => {
+    if (editingId && editName.trim()) {
+      renameWorkspace(editingId, editName.trim());
+    }
+    setEditingId(null);
+    setEditName("");
+  };
+
   const sidebar = (
     <aside className="flex h-full w-full flex-col border-r bg-card md:w-60">
-      {/* Logo + close on mobile */}
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground">
@@ -58,7 +74,6 @@ export default function WorkspaceSidebar() {
         </button>
       </div>
 
-      {/* Workspace header */}
       <div className="flex items-center justify-between px-4 py-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
           Workspaces
@@ -71,7 +86,6 @@ export default function WorkspaceSidebar() {
         </button>
       </div>
 
-      {/* Workspace list */}
       <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
         {showInput && (
           <div className="flex gap-1 p-1">
@@ -102,37 +116,68 @@ export default function WorkspaceSidebar() {
           </div>
         )}
 
-        {workspaces.map((ws) => (
-          <button
-            key={ws.id}
-            onClick={() => handleSelectWorkspace(ws.id)}
-            className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-              activeWorkspaceId === ws.id
-                ? "bg-foreground text-accent-foreground"
-                : "hover:bg-background"
-            }`}
-          >
-            <Folder className="h-4 w-4 shrink-0" />
-            <span className="flex-1 truncate">{ws.name}</span>
-            <span className="text-xs opacity-50">{ws.agents.length}</span>
+        {workspaces.map((ws) => {
+          const isActive = activeWorkspaceId === ws.id;
+          const isEditing = editingId === ws.id;
+
+          if (isEditing) {
+            return (
+              <div key={ws.id} className="flex gap-1 p-1">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") confirmRename();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  onBlur={confirmRename}
+                  className="h-8 flex-1 rounded-md border bg-background px-2 text-xs outline-none focus:border-foreground"
+                />
+              </div>
+            );
+          }
+
+          return (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                removeWorkspace(ws.id);
-              }}
-              className={`hidden h-5 w-5 items-center justify-center rounded group-hover:flex ${
-                activeWorkspaceId === ws.id
-                  ? "hover:bg-white/20"
-                  : "hover:bg-foreground/10"
+              key={ws.id}
+              onClick={() => handleSelectWorkspace(ws.id)}
+              className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                isActive
+                  ? "bg-foreground text-accent-foreground"
+                  : "hover:bg-background"
               }`}
             >
-              <Trash2 className="h-3 w-3" />
+              <Folder className="h-4 w-4 shrink-0" />
+              <span className="flex-1 truncate">{ws.name}</span>
+              <span className="text-xs opacity-50">{ws.agents.length}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startRename(ws.id, ws.name);
+                }}
+                className={`hidden h-5 w-5 items-center justify-center rounded group-hover:flex ${
+                  isActive ? "hover:bg-white/20" : "hover:bg-foreground/10"
+                }`}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeWorkspace(ws.id);
+                }}
+                className={`hidden h-5 w-5 items-center justify-center rounded group-hover:flex ${
+                  isActive ? "hover:bg-white/20" : "hover:bg-foreground/10"
+                }`}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
             </button>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Bottom menu */}
       <div className="flex flex-col gap-0.5 border-t p-2">
         <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-background hover:text-foreground">
           <Receipt className="h-4 w-4" />
@@ -158,7 +203,6 @@ export default function WorkspaceSidebar() {
 
   return (
     <>
-      {/* Mobile hamburger trigger */}
       <button
         onClick={() => setMobileOpen(true)}
         className="fixed left-3 top-3 z-40 flex h-9 w-9 items-center justify-center rounded-lg border bg-card shadow-sm md:hidden"
@@ -166,10 +210,8 @@ export default function WorkspaceSidebar() {
         <Menu className="h-4 w-4" />
       </button>
 
-      {/* Desktop sidebar */}
       <div className="hidden md:flex md:h-full">{sidebar}</div>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div

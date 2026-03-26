@@ -1,8 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import type { Workspace, AIAgent, ChannelConfig, OpenClawPackage } from "@/lib/types";
+import type { Workspace, AIAgent } from "@/lib/types";
 import { OPENCLAW_PACKAGES } from "@/lib/types";
+
+const DEFAULT_WS_ID = "ws-default";
 
 interface AppState {
   isLoggedIn: boolean;
@@ -16,6 +18,7 @@ interface AppState {
 
   addWorkspace: (name: string) => void;
   removeWorkspace: (id: string) => void;
+  renameWorkspace: (id: string, name: string) => void;
   setActiveWorkspace: (id: string) => void;
 
   addAgent: (workspaceId: string, name: string) => void;
@@ -26,17 +29,26 @@ interface AppState {
   setShowConfigModal: (show: boolean) => void;
 }
 
+function isAgentComplete(agent: AIAgent): boolean {
+  return !!agent.brain && agent.limbs.some((l) => l.enabled) && agent.chat.length > 0;
+}
+
 let agentCounter = 0;
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>((set) => ({
   isLoggedIn: false,
-  workspaces: [],
-  activeWorkspaceId: null,
+  workspaces: [{ id: DEFAULT_WS_ID, name: "Workspace", agents: [] }],
+  activeWorkspaceId: DEFAULT_WS_ID,
   selectedAgentId: null,
   showConfigModal: false,
 
   login: () => set({ isLoggedIn: true }),
-  logout: () => set({ isLoggedIn: false, workspaces: [], activeWorkspaceId: null }),
+  logout: () =>
+    set({
+      isLoggedIn: false,
+      workspaces: [{ id: DEFAULT_WS_ID, name: "Workspace", agents: [] }],
+      activeWorkspaceId: DEFAULT_WS_ID,
+    }),
 
   addWorkspace: (name: string) => {
     const id = `ws-${Date.now()}`;
@@ -47,9 +59,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   removeWorkspace: (id: string) => {
+    set((state) => {
+      const remaining = state.workspaces.filter((w) => w.id !== id);
+      return {
+        workspaces: remaining,
+        activeWorkspaceId:
+          state.activeWorkspaceId === id
+            ? remaining[0]?.id ?? null
+            : state.activeWorkspaceId,
+      };
+    });
+  },
+
+  renameWorkspace: (id: string, name: string) => {
     set((state) => ({
-      workspaces: state.workspaces.filter((w) => w.id !== id),
-      activeWorkspaceId: state.activeWorkspaceId === id ? null : state.activeWorkspaceId,
+      workspaces: state.workspaces.map((w) =>
+        w.id === id ? { ...w, name } : w
+      ),
     }));
   },
 
@@ -89,9 +115,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         w.id === workspaceId
           ? {
               ...w,
-              agents: w.agents.map((a) =>
-                a.id === agentId ? { ...a, ...updates } : a
-              ),
+              agents: w.agents.map((a) => {
+                if (a.id !== agentId) return a;
+                const updated = { ...a, ...updates };
+                if (!isAgentComplete(updated)) {
+                  updated.isOnline = false;
+                }
+                return updated;
+              }),
             }
           : w
       ),
@@ -104,9 +135,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         w.id === workspaceId
           ? {
               ...w,
-              agents: w.agents.map((a) =>
-                a.id === agentId ? { ...a, isOnline: !a.isOnline } : a
-              ),
+              agents: w.agents.map((a) => {
+                if (a.id !== agentId) return a;
+                if (!a.isOnline && !isAgentComplete(a)) return a;
+                return { ...a, isOnline: !a.isOnline };
+              }),
             }
           : w
       ),
