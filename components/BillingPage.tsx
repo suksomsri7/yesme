@@ -1,8 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { Check, Coins, Plus, ArrowLeft, Clock, Zap, CreditCard } from "lucide-react";
+import {
+  Check,
+  Coins,
+  Plus,
+  ArrowLeft,
+  Clock,
+  Zap,
+  CreditCard,
+  Download,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Filter,
+} from "lucide-react";
+import * as XLSX from "xlsx";
 
 const PLANS = [
   {
@@ -43,25 +56,100 @@ const TOKEN_PACKS = [
   { amount: 500000, price: 150 },
 ];
 
-const MOCK_HISTORY = [
-  { id: 1, date: "2026-03-26 10:30", type: "usage", description: "Agent 'Sales Bot' — GPT-4o", tokens: -120 },
-  { id: 2, date: "2026-03-26 09:15", type: "usage", description: "Agent 'Support' — Claude 3.5", tokens: -85 },
-  { id: 3, date: "2026-03-25 18:00", type: "topup", description: "Token top-up (50,000)", tokens: 50000 },
-  { id: 4, date: "2026-03-25 14:22", type: "usage", description: "Agent 'Sales Bot' — Web Search", tokens: -45 },
-  { id: 5, date: "2026-03-25 11:10", type: "usage", description: "Agent 'Support' — GPT-4o", tokens: -200 },
-  { id: 6, date: "2026-03-24 20:00", type: "plan", description: "Upgraded to Pro plan", tokens: 0 },
-  { id: 7, date: "2026-03-24 16:30", type: "usage", description: "Agent 'Translator' — Translator", tokens: -30 },
-  { id: 8, date: "2026-03-23 09:00", type: "topup", description: "Monthly token refill (200,000)", tokens: 200000 },
+interface UsageRecord {
+  id: number;
+  date: string;
+  type: "usage" | "topup" | "plan";
+  agent: string;
+  model: string;
+  direction: "input" | "output" | "-";
+  tokens: number;
+  cost: number;
+}
+
+const MOCK_USAGE: UsageRecord[] = [
+  { id: 1, date: "2026-03-26 10:30", type: "usage", agent: "Sales Bot", model: "GPT-4o", direction: "input", tokens: 1200, cost: 0.003 },
+  { id: 2, date: "2026-03-26 10:30", type: "usage", agent: "Sales Bot", model: "GPT-4o", direction: "output", tokens: 350, cost: 0.0035 },
+  { id: 3, date: "2026-03-26 09:15", type: "usage", agent: "Support", model: "Claude 3.5 Sonnet", direction: "input", tokens: 800, cost: 0.0024 },
+  { id: 4, date: "2026-03-26 09:15", type: "usage", agent: "Support", model: "Claude 3.5 Sonnet", direction: "output", tokens: 420, cost: 0.0063 },
+  { id: 5, date: "2026-03-25 18:00", type: "topup", agent: "-", model: "-", direction: "-", tokens: 50000, cost: 20 },
+  { id: 6, date: "2026-03-25 14:22", type: "usage", agent: "Sales Bot", model: "GPT-4o", direction: "input", tokens: 950, cost: 0.00238 },
+  { id: 7, date: "2026-03-25 14:22", type: "usage", agent: "Sales Bot", model: "GPT-4o", direction: "output", tokens: 280, cost: 0.0028 },
+  { id: 8, date: "2026-03-25 11:10", type: "usage", agent: "Support", model: "GPT-4o", direction: "input", tokens: 2100, cost: 0.00525 },
+  { id: 9, date: "2026-03-25 11:10", type: "usage", agent: "Support", model: "GPT-4o", direction: "output", tokens: 600, cost: 0.006 },
+  { id: 10, date: "2026-03-24 20:00", type: "plan", agent: "-", model: "-", direction: "-", tokens: 0, cost: 49 },
+  { id: 11, date: "2026-03-24 16:30", type: "usage", agent: "Translator Bot", model: "Gemini Flash", direction: "input", tokens: 500, cost: 0.0000375 },
+  { id: 12, date: "2026-03-24 16:30", type: "usage", agent: "Translator Bot", model: "Gemini Flash", direction: "output", tokens: 480, cost: 0.000144 },
+  { id: 13, date: "2026-03-23 09:00", type: "topup", agent: "-", model: "-", direction: "-", tokens: 200000, cost: 0 },
+  { id: 14, date: "2026-03-23 08:15", type: "usage", agent: "Sales Bot", model: "GPT-4o Mini", direction: "input", tokens: 3000, cost: 0.00045 },
+  { id: 15, date: "2026-03-23 08:15", type: "usage", agent: "Sales Bot", model: "GPT-4o Mini", direction: "output", tokens: 1500, cost: 0.0009 },
+  { id: 16, date: "2026-03-22 14:00", type: "usage", agent: "Support", model: "Claude 3 Haiku", direction: "input", tokens: 4000, cost: 0.001 },
+  { id: 17, date: "2026-03-22 14:00", type: "usage", agent: "Support", model: "Claude 3 Haiku", direction: "output", tokens: 1800, cost: 0.00225 },
+  { id: 18, date: "2026-03-21 10:00", type: "usage", agent: "Code Helper", model: "Claude 3.5 Sonnet", direction: "input", tokens: 5000, cost: 0.015 },
+  { id: 19, date: "2026-03-21 10:00", type: "usage", agent: "Code Helper", model: "Claude 3.5 Sonnet", direction: "output", tokens: 3200, cost: 0.048 },
+  { id: 20, date: "2026-03-20 09:00", type: "topup", agent: "-", model: "-", direction: "-", tokens: 100000, cost: 35 },
 ];
+
+function getDateOnly(dateStr: string): string {
+  return dateStr.split(" ")[0];
+}
 
 export default function BillingPage() {
   const { currentPlan, tokenBalance, setCurrentPlan, addTokens, setActiveView } =
     useAppStore();
   const [showTopUp, setShowTopUp] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "usage" | "topup" | "plan">("all");
+
+  const filtered = useMemo(() => {
+    return MOCK_USAGE.filter((item) => {
+      if (filterType !== "all" && item.type !== filterType) return false;
+      const d = getDateOnly(item.date);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }, [dateFrom, dateTo, filterType]);
+
+  const totalTokens = useMemo(
+    () => filtered.filter((r) => r.type === "usage").reduce((s, r) => s + r.tokens, 0),
+    [filtered]
+  );
+  const totalCost = useMemo(
+    () => filtered.filter((r) => r.type === "usage").reduce((s, r) => s + r.cost, 0),
+    [filtered]
+  );
+
+  const exportToExcel = () => {
+    const rows = filtered.map((r) => ({
+      Date: r.date,
+      Type: r.type,
+      Agent: r.agent,
+      Model: r.model,
+      Direction: r.direction,
+      Tokens: r.tokens,
+      "Cost ($)": r.cost.toFixed(6),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Usage History");
+
+    ws["!cols"] = [
+      { wch: 18 },
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 12 },
+    ];
+
+    XLSX.writeFile(wb, `yesme-usage-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3 pl-14 md:px-6 md:pl-6">
         <button
           onClick={() => setActiveView("workspace")}
@@ -74,7 +162,7 @@ export default function BillingPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl p-4 md:p-6">
-          {/* Section: Plans */}
+          {/* Plans */}
           <div className="mb-8">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
               Choose your plan
@@ -86,9 +174,7 @@ export default function BillingPage() {
                   <div
                     key={plan.id}
                     className={`relative flex flex-col rounded-2xl border p-4 transition-all ${
-                      isActive
-                        ? "border-foreground bg-foreground/5"
-                        : "hover:border-foreground/20"
+                      isActive ? "border-foreground bg-foreground/5" : "hover:border-foreground/20"
                     }`}
                   >
                     {"popular" in plan && plan.popular && (
@@ -101,9 +187,7 @@ export default function BillingPage() {
                       <span className="text-2xl font-bold">${plan.price}</span>
                       <span className="text-xs text-muted">/mo</span>
                     </div>
-                    <p className="mt-1 text-[10px] text-muted">
-                      {plan.tokens.toLocaleString()} tokens/mo
-                    </p>
+                    <p className="mt-1 text-[10px] text-muted">{plan.tokens.toLocaleString()} tokens/mo</p>
                     <ul className="mt-3 flex flex-col gap-1.5">
                       {plan.features.map((f, i) => (
                         <li key={i} className="flex items-center gap-1.5 text-xs text-muted">
@@ -129,11 +213,9 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* Section: Token Credit */}
+          {/* Token Credit */}
           <div className="mb-8">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Token Credit
-            </h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">Token Credit</h3>
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
@@ -152,7 +234,6 @@ export default function BillingPage() {
                 Top Up
               </button>
             </div>
-
             {showTopUp && (
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {TOKEN_PACKS.map((pack) => (
@@ -166,9 +247,7 @@ export default function BillingPage() {
                   >
                     <div className="flex items-center gap-1">
                       <Zap className="h-3 w-3 text-amber-500" />
-                      <span className="text-sm font-semibold">
-                        {pack.amount.toLocaleString()}
-                      </span>
+                      <span className="text-sm font-semibold">{pack.amount.toLocaleString()}</span>
                     </div>
                     <span className="text-xs text-muted">${pack.price}</span>
                   </button>
@@ -177,54 +256,162 @@ export default function BillingPage() {
             )}
           </div>
 
-          {/* Section: Usage History */}
+          {/* Usage History */}
           <div className="mb-8">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Usage History
-            </h3>
-            <div className="mt-3 rounded-2xl border">
-              <div className="divide-y">
-                {MOCK_HISTORY.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                          item.type === "topup"
-                            ? "bg-emerald-100"
-                            : item.type === "plan"
-                              ? "bg-blue-100"
-                              : "bg-background"
-                        }`}
-                      >
-                        {item.type === "topup" ? (
-                          <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
-                        ) : item.type === "plan" ? (
-                          <Zap className="h-3.5 w-3.5 text-blue-600" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 text-muted" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium">{item.description}</p>
-                        <p className="text-[10px] text-muted">{item.date}</p>
-                      </div>
-                    </div>
-                    {item.tokens !== 0 && (
-                      <span
-                        className={`text-xs font-semibold ${
-                          item.tokens > 0 ? "text-emerald-600" : "text-foreground"
-                        }`}
-                      >
-                        {item.tokens > 0 ? "+" : ""}
-                        {item.tokens.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                ))}
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                Usage History
+              </h3>
+              <button
+                onClick={exportToExcel}
+                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[10px] font-medium text-muted hover:bg-background hover:text-foreground transition-colors"
+              >
+                <Download className="h-3 w-3" />
+                Export Excel
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted">
+                <Filter className="h-3 w-3" />
+                Filter:
               </div>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+                className="h-7 rounded-md border bg-background px-2 text-[11px] outline-none"
+              >
+                <option value="all">All types</option>
+                <option value="usage">Usage only</option>
+                <option value="topup">Top-up only</option>
+                <option value="plan">Plan changes</option>
+              </select>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-7 rounded-md border bg-background px-2 text-[11px] outline-none"
+              />
+              <span className="text-[10px] text-muted">to</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-7 rounded-md border bg-background px-2 text-[11px] outline-none"
+              />
+              {(dateFrom || dateTo || filterType !== "all") && (
+                <button
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                    setFilterType("all");
+                  }}
+                  className="text-[10px] text-muted hover:text-red-500 transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Summary */}
+            <div className="mt-3 flex gap-3">
+              <div className="flex-1 rounded-xl border bg-background px-3 py-2">
+                <p className="text-[10px] text-muted">Usage Tokens</p>
+                <p className="text-sm font-bold">{totalTokens.toLocaleString()}</p>
+              </div>
+              <div className="flex-1 rounded-xl border bg-background px-3 py-2">
+                <p className="text-[10px] text-muted">Usage Cost</p>
+                <p className="text-sm font-bold">${totalCost.toFixed(4)}</p>
+              </div>
+              <div className="flex-1 rounded-xl border bg-background px-3 py-2">
+                <p className="text-[10px] text-muted">Records</p>
+                <p className="text-sm font-bold">{filtered.length}</p>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="mt-3 overflow-x-auto rounded-2xl border">
+              <table className="w-full min-w-[600px] text-left">
+                <thead>
+                  <tr className="border-b bg-background text-[10px] font-semibold uppercase tracking-wider text-muted">
+                    <th className="px-4 py-2.5">Date</th>
+                    <th className="px-3 py-2.5">Type</th>
+                    <th className="px-3 py-2.5">Agent</th>
+                    <th className="px-3 py-2.5">Model</th>
+                    <th className="px-3 py-2.5">I/O</th>
+                    <th className="px-3 py-2.5 text-right">Tokens</th>
+                    <th className="px-4 py-2.5 text-right">Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-xs text-muted">
+                        No records found
+                      </td>
+                    </tr>
+                  )}
+                  {filtered.map((r) => (
+                    <tr key={r.id} className="hover:bg-background/50 transition-colors">
+                      <td className="px-4 py-2.5 text-xs text-muted whitespace-nowrap">{r.date}</td>
+                      <td className="px-3 py-2.5">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            r.type === "usage"
+                              ? "bg-background text-foreground"
+                              : r.type === "topup"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {r.type === "usage" && <Clock className="h-2.5 w-2.5" />}
+                          {r.type === "topup" && <CreditCard className="h-2.5 w-2.5" />}
+                          {r.type === "plan" && <Zap className="h-2.5 w-2.5" />}
+                          {r.type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs font-medium">
+                        {r.agent === "-" ? (
+                          <span className="text-muted">—</span>
+                        ) : (
+                          r.agent
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted">
+                        {r.model === "-" ? "—" : r.model}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {r.direction === "input" ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-blue-600">
+                            <ArrowDownLeft className="h-2.5 w-2.5" />
+                            IN
+                          </span>
+                        ) : r.direction === "output" ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-orange-600">
+                            <ArrowUpRight className="h-2.5 w-2.5" />
+                            OUT
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-xs font-semibold tabular-nums">
+                        {r.type === "topup" ? (
+                          <span className="text-emerald-600">+{r.tokens.toLocaleString()}</span>
+                        ) : r.tokens > 0 ? (
+                          r.tokens.toLocaleString()
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs tabular-nums text-muted">
+                        {r.cost > 0 ? `$${r.cost.toFixed(4)}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <p className="mt-2 text-center text-[10px] text-muted/50">
               Showing mock data — connect to backend for live usage
